@@ -1,0 +1,238 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  admin
+  production
+  attendance
+  finance
+}
+
+enum ProductCategory {
+  banner
+  sticker
+  business_card
+  facade
+  tshirt
+  mug
+  planner
+  keychain
+  box
+  acrylic
+  mdf
+  dtf
+  sublimation
+  laser
+  custom
+}
+
+enum ProductUnit {
+  cm
+  m
+  un
+  pct
+}
+
+enum BudgetStatus {
+  draft
+  sent
+  approved
+  rejected
+  expired
+}
+
+enum OrderStatus {
+  pending
+  approved
+  production
+  printing
+  finishing
+  completed
+  delivered
+}
+
+enum Priority {
+  low
+  medium
+  high
+  urgent
+}
+
+enum NotificationType {
+  new_order
+  delay
+  budget_approved
+  production_completed
+  reminder
+  info
+}
+
+enum ActivityAction {
+  create
+  update
+  delete
+  status_change
+  view
+  login
+  logout
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  password      String
+  role          UserRole  @default(attendance)
+  avatar        String?
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  budgets       Budget[]
+  orders        Order[]
+  activities    ActivityLog[]
+  notifications Notification[]
+
+  @@map("users")
+}
+
+model Client {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String
+  whatsapp  String?
+  email     String?
+  cpfCnpj   String?
+  address   Json?
+  notes     String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  budgets Budget[]
+  orders  Order[]
+
+  @@map("clients")
+}
+
+model Product {
+  id             String          @id @default(cuid())
+  name           String
+  category       ProductCategory
+  description    String?
+  basePrice      Float           @default(0)
+  costPrice      Float?
+  unit           ProductUnit     @default(un)
+  productionTime Int?
+  active         Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  budgetItems    BudgetItem[]
+
+  @@map("products")
+}
+
+model Budget {
+  id           String        @id @default(cuid())
+  clientId     String?
+  client       Client?       @relation(fields: [clientId], references: [id])
+  clientName   String
+  clientPhone  String
+  items        BudgetItem[]
+  subtotal     Float         @default(0)
+  discount     Float         @default(0)
+  freight      Float         @default(0)
+  deposit      Float         @default(0)
+  total        Float         @default(0)
+  status       BudgetStatus  @default(draft)
+  observations String?
+  validity     Int?          @default(30)
+  createdBy    String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  orders Order[]
+
+  @@map("budgets")
+}
+
+model BudgetItem {
+  id           String   @id @default(cuid())
+  budgetId     String
+  budget       Budget   @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  productId    String?
+  product      Product? @relation(fields: [productId], references: [id])
+  productName  String
+  width        Float
+  height       Float
+  unit         ProductUnit @default(cm)
+  quantity     Int
+  material     String?
+  finish       String?
+  deadline     Int?
+  observations String?
+  unitPrice    Float
+  discount     Float    @default(0)
+  total        Float
+  createdAt    DateTime @default(now())
+
+  @@map("budget_items")
+}
+
+model Order {
+  id           String       @id @default(cuid())
+  budgetId     String
+  budget       Budget       @relation(fields: [budgetId], references: [id])
+  clientId     String
+  client       Client       @relation(fields: [clientId], references: [id])
+  items        Json
+  total        Float
+  status       OrderStatus  @default(pending)
+  priority     Priority     @default(medium)
+  deadline     DateTime
+  observations String?
+  assignedTo   String?
+  createdBy    String
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  activities   ActivityLog[]
+
+  @@map("orders")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  type      NotificationType
+  title     String
+  message   String
+  read      Boolean          @default(false)
+  userId    String
+  user      User             @relation(fields: [userId], references: [id])
+  link      String?
+  createdAt DateTime        @default(now())
+
+  @@map("notifications")
+}
+
+model ActivityLog {
+  id         String         @id @default(cuid())
+  action     ActivityAction
+  entityType String
+  entityId   String
+  userId     String
+  user       User           @relation(fields: [userId], references: [id])
+  details    Json?
+  createdAt  DateTime       @default(now())
+
+  order     Order?     @relation(fields: [entityId], references: [id])
+
+  @@map("activity_logs")
+}

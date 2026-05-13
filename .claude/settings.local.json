@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd /tmp)",
+      "Bash(npx create-next-app@latest proart-app --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --yes)",
+      "Bash(Move-Item C:\\\\Users\\\\juanf\\\\AppData\\\\Local\\\\Temp\\\\proart-app\\\\* .)",
+      "Bash(Remove-Item C:\\\\Users\\\\juanf\\\\AppData\\\\Local\\\\Temp\\\\proart-app -Recurse -Force)",
+      "Bash(npm install *)"
+    ]
+  }
+}
