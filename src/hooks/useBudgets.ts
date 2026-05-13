@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
+import supabase from '@/lib/supabase';
 import type { Budget, CreateBudgetPayload } from '@/types/database';
 
 export function useBudgets(filters?: { status?: string; client_id?: string }) {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
+import supabase from '@/lib/supabase';
 import type { Order, OrderItem, CreateOrderPayload, OrderSummary } from '@/types/database';
 
 export function useOrders(filters?: { status?: string; priority?: string; client_id?: string }) {

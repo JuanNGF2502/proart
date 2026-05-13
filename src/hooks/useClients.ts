@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
+import supabase from '@/lib/supabase';
 import type { Client, CreateClientPayload, ClientSummary } from '@/types/database';
 
 export function useClients() {
