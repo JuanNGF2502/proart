@@ -10,6 +10,16 @@ export const forgotPasswordSchema = z.object({
   email: z.string().email("Email inválido"),
 });
 
+export const registerSchema = z.object({
+  name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
+  email: z.string().email("Email inválido"),
+  password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
+  confirmPassword: z.boolean(),
+}).refine((data) => data.password === "true" || data.confirmPassword === true, {
+  message: "Confirme sua senha",
+  path: ["confirmPassword"],
+});
+
 export const clientSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
   phone: z.string().min(10, "Telefone inválido"),
@@ -84,6 +94,7 @@ export const productSchema = z.object({
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;
+export type RegisterInput = z.infer<typeof registerSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ClientInput = z.infer<typeof clientSchema>;
 export type BudgetItemInput = z.infer<typeof budgetItemSchema>;

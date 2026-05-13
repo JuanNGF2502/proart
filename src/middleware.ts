@@ -1,15 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { useAuthStore } from "@/shared/store/auth-store";
 
 // Routes that don't require authentication
-const publicRoutes = ["/login", "/forgot-password", "/api/auth"];
-
-// Routes that require specific roles
-const roleProtectedRoutes: Record<string, string[]> = {
-  "/admin": ["admin"],
-  "/settings": ["admin", "production", "attendance", "finance"],
-};
+const publicRoutes = ["/login", "/register", "/forgot-password", "/api/auth"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -19,44 +12,43 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Allow static files and API routes (except auth)
+  // Allow static files and Next.js internals
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/static") ||
     pathname.startsWith("/icons") ||
-    pathname.startsWith("/api/") && !pathname.startsWith("/api/auth")
+    pathname.startsWith("/api/") ||
+    pathname.startsWith("/favicon") ||
+    pathname.includes(".")
   ) {
     return NextResponse.next();
   }
 
-  // Check authentication using cookies
-  const token = request.cookies.get("proart-token")?.value;
-  const userJson = request.cookies.get("proart-user")?.value;
+  // Check Supabase Auth cookie
+  // The cookie is named sb-{project-ref}-auth-token
+  const authCookies = request.cookies.getAll().filter(cookie =>
+    cookie.name.includes('sb-') && cookie.name.includes('auth-token')
+  );
 
-  if (!token || !userJson) {
-    // Redirect to login for dashboard routes
-    if (pathname.startsWith("/dashboard") || pathname === "/") {
+  const hasAuth = authCookies.length > 0;
+
+  // Redirect to login if not authenticated and trying to access protected routes
+  if (!hasAuth) {
+    if (pathname.startsWith("/dashboard") ||
+        pathname.startsWith("/orders") ||
+        pathname.startsWith("/budgets") ||
+        pathname.startsWith("/clients") ||
+        pathname.startsWith("/production") ||
+        pathname.startsWith("/settings") ||
+        pathname.startsWith("/notifications") ||
+        pathname === "/") {
       return NextResponse.redirect(new URL("/login", request.url));
     }
-    return NextResponse.next();
   }
 
-  // Parse user data
-  try {
-    const user = JSON.parse(userJson);
-
-    // Check role-based access
-    for (const [route, roles] of Object.entries(roleProtectedRoutes)) {
-      if (pathname.startsWith(route) && !roles.includes(user.role)) {
-        return NextResponse.redirect(new URL("/dashboard", request.url));
-      }
-    }
-  } catch {
-    // Invalid user data, redirect to login
-    const response = NextResponse.redirect(new URL("/login", request.url));
-    response.cookies.delete("proart-token");
-    response.cookies.delete("proart-user");
-    return response;
+  // If authenticated and trying to access login, redirect to dashboard
+  if (hasAuth && pathname === "/login") {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   return NextResponse.next();
@@ -64,6 +56,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|icons).*)",
+    "/((?!_next/static|_next/image|favicon.ico).*)",
   ],
 };

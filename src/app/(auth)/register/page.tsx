@@ -3,45 +3,75 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
-import { Mail, Lock, Eye, EyeOff, Loader2, ChevronRight } from "lucide-react";
+import { Mail, Lock, User, Eye, EyeOff, Loader2, ChevronRight, ArrowLeft } from "lucide-react";
 import { useState } from "react";
-import { loginSchema, type LoginInput } from "@/shared/validators/schemas";
+import { registerSchema, type RegisterInput } from "@/shared/validators/schemas";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const router = useRouter();
-  const { signIn, loading: authLoading } = useAuth();
+  const { signUp, loading: authLoading } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<LoginInput>({
-    resolver: zodResolver(loginSchema),
+  } = useForm<RegisterInput>({
+    resolver: zodResolver(registerSchema),
     defaultValues: {
+      name: "",
       email: "",
       password: "",
-      rememberMe: false,
+      confirmPassword: false,
     },
   });
 
-  const onSubmit = async (data: LoginInput) => {
+  const onSubmit = async (data: RegisterInput) => {
     setIsLoading(true);
     setError(null);
 
-    const result = await signIn(data.email, data.password);
+    const result = await signUp(data.email, data.password, data.name);
 
     if (result.error) {
       setError(result.error);
       setIsLoading(false);
     } else {
-      router.push("/dashboard");
+      setSuccess(true);
     }
   };
+
+  if (success) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col justify-center px-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center"
+        >
+          <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Mail className="h-10 w-10 text-emerald-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Confirme seu email</h2>
+          <p className="text-gray-500 mb-8">
+            Enviamos um link de confirmação para seu email.
+          </p>
+          <Link
+            href="/login"
+            className="inline-flex items-center gap-2 text-primary font-medium"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Voltar para login
+          </Link>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -52,12 +82,12 @@ export default function LoginPage() {
           animate={{ opacity: 1, y: 0 }}
           className="flex items-center gap-4"
         >
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center shadow-lg shadow-primary/20">
-            <span className="text-gray-900 font-bold text-2xl">P</span>
-          </div>
+          <Link href="/login" className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center">
+            <ArrowLeft className="h-5 w-5 text-gray-600" />
+          </Link>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">PROART</h1>
-            <p className="text-sm text-gray-500">Sistema de Gestão</p>
+            <h1 className="text-xl font-bold text-gray-900">Criar Conta</h1>
+            <p className="text-sm text-gray-500">PROART</p>
           </div>
         </motion.div>
       </div>
@@ -69,8 +99,8 @@ export default function LoginPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
         >
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">Bem-vindo</h2>
-          <p className="text-gray-500 mb-8">Entre com suas credenciais para continuar</p>
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">Cadastre-se</h2>
+          <p className="text-gray-500 mb-8">Preencha seus dados para criar uma conta</p>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             {/* Error Message */}
@@ -79,6 +109,23 @@ export default function LoginPage() {
                 <p className="text-sm text-red-600">{error}</p>
               </div>
             )}
+
+            {/* Name */}
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-2 block">Nome</label>
+              <div className="relative">
+                <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Seu nome completo"
+                  className="w-full h-14 pl-12 pr-4 bg-white rounded-2xl text-gray-900 placeholder:text-gray-400 border border-gray-200 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                  {...register("name")}
+                />
+              </div>
+              {errors.name && (
+                <p className="text-sm text-red-500 mt-2">{errors.name.message}</p>
+              )}
+            </div>
 
             {/* Email */}
             <div>
@@ -125,21 +172,6 @@ export default function LoginPage() {
               )}
             </div>
 
-            {/* Remember & Forgot */}
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="w-5 h-5 rounded border-gray-300 text-primary focus:ring-primary/20"
-                  {...register("rememberMe")}
-                />
-                <span className="text-sm text-gray-600">Lembrar-me</span>
-              </label>
-              <a href="/forgot-password" className="text-sm font-medium text-primary hover:text-primary-dark">
-                Esqueceu senha?
-              </a>
-            </div>
-
             {/* Submit Button */}
             <button
               type="submit"
@@ -150,19 +182,19 @@ export default function LoginPage() {
                 <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
                 <>
-                  Entrar
+                  Criar conta
                   <ChevronRight className="h-5 w-5" />
                 </>
               )}
             </button>
           </form>
 
-          {/* Sign up link */}
+          {/* Login link */}
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-500">
-              Não tem conta?{" "}
-              <a href="/register" className="font-medium text-primary hover:text-primary-dark">
-                Criar conta
+              Já tem conta?{" "}
+              <a href="/login" className="font-medium text-primary hover:text-primary-dark">
+                Entrar
               </a>
             </p>
           </div>

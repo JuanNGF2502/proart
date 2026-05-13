@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Users,
@@ -13,6 +13,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
 
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -29,8 +30,13 @@ const bottomItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { signOut } = useAuth();
 
-  return (
+  const handleLogout = async () => {
+    await signOut();
+    router.push("/login");
+  };
     <aside className="hidden md:flex fixed left-0 top-0 h-screen w-64 bg-surface border-r border-gray-light flex-col z-40">
       {/* Logo */}
       <div className="flex items-center gap-3 p-6 border-b border-gray-light">
@@ -80,13 +86,13 @@ export function Sidebar() {
             </Link>
           );
         })}
-        <Link
-          href="/login"
-          className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-semibold text-danger hover:bg-red-50"
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-semibold text-danger hover:bg-red-50 w-full"
         >
           <LogOut className="h-5 w-5" />
           <span>Sair</span>
-        </Link>
+        </button>
       </div>
     </aside>
   );
