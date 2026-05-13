@@ -37,6 +37,8 @@ export function Sidebar() {
     await signOut();
     router.push("/login");
   };
+
+  return (
     <aside className="hidden md:flex fixed left-0 top-0 h-screen w-64 bg-surface border-r border-gray-light flex-col z-40">
       {/* Logo */}
       <div className="flex items-center gap-3 p-6 border-b border-gray-light">
