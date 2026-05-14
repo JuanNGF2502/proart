@@ -5,8 +5,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/api/", "/admin/"],
     },
-    sitemap: "https://proart.com.br/sitemap.xml",
+    sitemap: "https://proart-od13mipwc-juan-s-projects5.vercel.app/sitemap.xml",
   };
 }
