@@ -11,7 +11,6 @@ const withPWAConfig = withPWA({
   register: true,
   skipWaiting: true,
   disable: process.env.NODE_ENV === "development",
-  manifestFilename: "manifest.json",
   runtimeCaching: [
     {
       urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\/.*/i,
