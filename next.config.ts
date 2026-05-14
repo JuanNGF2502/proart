@@ -11,6 +11,7 @@ const withPWAConfig = withPWA({
   register: true,
   skipWaiting: true,
   disable: process.env.NODE_ENV === "development",
+  publicExcludes: ['!**/manifest.json'],
   runtimeCaching: [
     {
       urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\/.*/i,
@@ -43,6 +44,18 @@ const withPWAConfig = withPWA({
           maxEntries: 64,
           maxAgeSeconds: 30 * 24 * 60 * 60,
         },
+      },
+    },
+    {
+      urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
+      handler: "NetworkFirst",
+      options: {
+        cacheName: "supabase-api",
+        expiration: {
+          maxEntries: 100,
+          maxAgeSeconds: 60 * 60,
+        },
+        networkTimeoutSeconds: 10,
       },
     },
   ],
