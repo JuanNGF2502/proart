@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/shared/components/providers";
+import { InstallButton, OfflineDetector } from "@/components/pwa";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -16,37 +17,71 @@ export const viewport: Viewport = {
   minimumScale: 1,
   userScalable: false,
   viewportFit: "cover",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
-  ],
+  themeColor: "#d4a612",
 };
 
 export const metadata: Metadata = {
-  title: "Proart App",
-  description: "Sistema de gestão premium para gráfica e comunicação visual",
+  title: "Proart - Gestão Gráfica",
+  description: "Sistema de gestão para gráfica e comunicação visual",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "Proart",
-    startupImage: "/icons/icon-512.png",
+    startupImage: [
+      {
+        url: "/icons/icon-512.png",
+        media: "(device-width: 768px)",
+      },
+    ],
   },
   other: {
     "mobile-web-app-capable": "yes",
     "apple-mobile-web-app-capable": "yes",
     "apple-mobile-web-app-status-bar-style": "black-translucent",
+    "apple-mobile-web-app-title": "Proart",
   },
-  icons: {
-    icon: [
-      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
-    ],
-    apple: [
-      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
-    ],
-  },
+  icons: [
+    {
+      rel: "icon",
+      type: "image/png",
+      sizes: "32x32",
+      url: "/icons/icon-32.png",
+    },
+    {
+      rel: "icon",
+      type: "image/png",
+      sizes: "16x16",
+      url: "/icons/icon-16.png",
+    },
+    {
+      rel: "apple-touch-icon",
+      sizes: "180x180",
+      url: "/icons/icon-180.png",
+    },
+    {
+      rel: "apple-touch-icon",
+      sizes: "152x152",
+      url: "/icons/icon-152.png",
+    },
+    {
+      rel: "apple-touch-icon",
+      sizes: "120x120",
+      url: "/icons/icon-120.png",
+    },
+    {
+      rel: "icon",
+      type: "image/png",
+      sizes: "192x192",
+      url: "/icons/icon-192.png",
+    },
+    {
+      rel: "icon",
+      type: "image/png",
+      sizes: "512x512",
+      url: "/icons/icon-512.png",
+    },
+  ],
 };
 
 export default function RootLayout({
@@ -56,8 +91,39 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" suppressHydrationWarning>
-      <body className={`${inter.variable} min-h-screen antialiased`}>
-        <Providers>{children}</Providers>
+      <head>
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta
+          name="apple-mobile-web-app-status-bar-style"
+          content="black-translucent"
+        />
+        <meta name="apple-mobile-web-app-title" content="Proart" />
+        <link rel="apple-touch-icon" href="/icons/icon-180.png" />
+        <link
+          rel="apple-touch-icon"
+          sizes="152x152"
+          href="/icons/icon-152.png"
+        />
+        <link
+          rel="apple-touch-icon"
+          sizes="120x120"
+          href="/icons/icon-120.png"
+        />
+      </head>
+      <body
+        className={`${inter.variable} min-h-screen antialiased`}
+        style={{
+          paddingTop: "env(safe-area-inset-top)",
+          paddingBottom: "env(safe-area-inset-bottom)",
+          paddingLeft: "env(safe-area-inset-left)",
+          paddingRight: "env(safe-area-inset-right)",
+        }}
+      >
+        <Providers>
+          <OfflineDetector />
+          {children}
+          <InstallButton />
+        </Providers>
       </body>
     </html>
   );
