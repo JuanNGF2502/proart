@@ -11,6 +11,11 @@ const withPWAConfig = withPWA({
   register: true,
   skipWaiting: true,
   disable: process.env.NODE_ENV === "development",
+  scope: "/",
+  startUrl: "/dashboard",
+  backgroundColor: "#0a0a0a",
+  themeColor: "#d4a612",
+  manifestFilename: "manifest.json",
   runtimeCaching: [
     {
       urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\/.*/i,
