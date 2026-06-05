@@ -5,10 +5,10 @@ import { useParams, useRouter } from "next/navigation";
 import { DashboardLayout } from "@/shared/components/layouts";
 import { Header } from "@/shared/components/layouts";
 import { motion } from "framer-motion";
-import { ArrowLeft, Pencil, CheckCircle, Clock, XCircle, FileText, Loader2, FileDown, Trash2, ArrowRight, Package } from "lucide-react";
+import { ArrowLeft, Pencil, CheckCircle, Clock, XCircle, FileText, Loader2, FileDown, MessageCircle, Trash2, ArrowRight, Package } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency, formatDate } from "@/shared/lib/utils";
-import { downloadBudgetPDF, loadBackgroundImage, type BudgetData } from "@/shared/lib/pdf-generator";
+import { downloadBudgetPDF, type BudgetData } from "@/shared/lib/pdf-generator";
 import { supabase } from "@/lib/supabase";
 
 const statusConfig: Record<string, { label: string; bg: string; text: string; icon: React.ElementType }> = {
@@ -27,15 +27,10 @@ export default function BudgetDetailPage() {
   const [client, setClient] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [bgBase64, setBgBase64] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
   const [createdOrderNumber, setCreatedOrderNumber] = useState<string | null>(null);
-
-  useEffect(() => {
-    loadBackgroundImage().then(setBgBase64).catch(() => setBgBase64(""));
-  }, []);
 
   useEffect(() => {
     const fetchBudget = async () => {
@@ -242,8 +237,35 @@ export default function BudgetDetailPage() {
       total: budget.total,
     };
 
-    downloadBudgetPDF(budgetData, undefined, bgBase64);
+    downloadBudgetPDF(budgetData);
     setIsGenerating(false);
+  };
+
+  const handleSendWhatsApp = async () => {
+    if (!budget) return;
+    setIsGenerating(true);
+    const budgetData: BudgetData = {
+      id: budget.budget_number,
+      clientName: client?.name || 'Cliente',
+      clientPhone: client?.phone || '',
+      items: items.map((item, i) => ({ id: String(i + 1), name: item.name, quantity: item.quantity, price: item.unit_price })),
+      notes: budget.notes || '',
+      validity: 30,
+      date: new Date(budget.created_at),
+      total: budget.total,
+    };
+    await downloadBudgetPDF(budgetData);
+    setIsGenerating(false);
+
+    const msg = encodeURIComponent(
+      `Olá ${client?.name || ''}! Segue o orçamento ProArt.\n` +
+      `Valor: ${formatCurrency(budget.total)}\n` +
+      `Para mais informações, entre em contato.`
+    );
+    const phone = client?.phone?.replace(/\D/g, '') || '';
+    if (phone) {
+      window.open(`https://wa.me/55${phone}?text=${msg}`, '_blank');
+    }
   };
 
   if (loading) {
@@ -286,7 +308,7 @@ export default function BudgetDetailPage() {
         }
       />
 
-      <div className="p-5 space-y-6">
+      <div id="budget-content" className="p-5 space-y-6">
         {/* Status and Actions */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -467,23 +489,24 @@ export default function BudgetDetailPage() {
           transition={{ delay: 0.3 }}
           className="space-y-3"
         >
-          <button
-            onClick={handleDownloadPDF}
-            disabled={isGenerating}
-            className="w-full h-14 bg-gray-900 text-white rounded-2xl font-semibold flex items-center justify-center gap-3 hover:bg-gray-800 transition-colors shadow-lg shadow-gray-900/20 disabled:opacity-50"
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                Gerando PDF...
-              </>
-            ) : (
-              <>
-                <FileDown className="h-5 w-5" />
-                Baixar PDF
-              </>
-            )}
-          </button>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={handleDownloadPDF}
+              disabled={isGenerating}
+              className="h-14 bg-gray-900 text-white rounded-2xl font-semibold flex items-center justify-center gap-2 hover:bg-gray-800 transition-colors shadow-lg shadow-gray-900/20 disabled:opacity-50"
+            >
+              <FileDown className="h-5 w-5 shrink-0" />
+              <span className="text-sm">Baixar PDF</span>
+            </button>
+            <button
+              onClick={handleSendWhatsApp}
+              disabled={isGenerating}
+              className="h-14 bg-emerald-500 text-white rounded-2xl font-semibold flex items-center justify-center gap-2 hover:bg-emerald-600 transition-colors shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+            >
+              <MessageCircle className="h-5 w-5 shrink-0" />
+              <span className="text-sm">Enviar WhatsApp</span>
+            </button>
+          </div>
 
           <Link
             href={`/budgets/new?edit=true&data=${encodeURIComponent(JSON.stringify({
@@ -501,7 +524,7 @@ export default function BudgetDetailPage() {
               notes: budget.notes || '',
               validity: 30,
             }))}`}
-            className="w-full h-14 bg-primary text-gray-900 rounded-2xl font-semibold flex items-center justify-center gap-3 hover:bg-primary-dark transition-colors shadow-lg shadow-primary/20"
+            className="block w-full h-14 bg-primary text-gray-900 rounded-2xl font-semibold flex items-center justify-center gap-3 hover:bg-primary-dark transition-colors shadow-lg shadow-primary/20"
           >
             <Pencil className="h-5 w-5" />
             Editar Orçamento

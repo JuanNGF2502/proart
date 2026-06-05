@@ -9,12 +9,14 @@ import {
   Package,
   Factory,
   Plus,
+  Box,
 } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Início" },
   { href: "/clients", icon: Users, label: "Clientes" },
+  { href: "/products", icon: Box, label: "Produtos" },
   { href: "/budgets", icon: Receipt, label: "Orçamentos" },
   { href: "/orders", icon: Package, label: "Pedidos" },
   { href: "/production", icon: Factory, label: "Produção" },

@@ -174,6 +174,7 @@ export interface Product {
   // Pricing
   unit_price: number;
   unit: string;
+  pricing_mode: 'manual' | 'component_sum';
 
   // Category
   category?: string;
@@ -190,6 +191,31 @@ export interface Product {
   image_url?: string;
 
   // Metadata
+  created_at: string;
+  updated_at: string;
+
+  // Relations
+  components?: ProductComponent[];
+}
+
+// ============================================
+// PRODUCT COMPONENT (Precificação)
+// ============================================
+
+export interface ProductComponent {
+  id: string;
+  product_id: string;
+  name: string;
+  type: 'material' | 'labor' | 'service' | 'tax' | 'other';
+  description?: string;
+  cost_price: number;
+  markup_percent: number;
+  unit_price: number;
+  unit: string;
+  quantity: number;
+  is_editable: boolean;
+  is_required: boolean;
+  sort_order: number;
   created_at: string;
   updated_at: string;
 }

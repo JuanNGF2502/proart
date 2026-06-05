@@ -3,6 +3,7 @@ import jsPDF from "jspdf";
 export interface BudgetItem {
   id: string;
   name: string;
+  description?: string;
   quantity: number;
   price: number;
 }
@@ -11,251 +12,214 @@ export interface BudgetData {
   id: string;
   clientName: string;
   clientPhone: string;
-  clientEmail: string;
-  clientAddress?: string;
+  clientEmail?: string;
   items: BudgetItem[];
   notes: string;
   validity: number;
   date: Date;
   total: number;
-  companyName?: string;
-  companyEmail?: string;
-  companyPhone?: string;
 }
 
-export function generateBudgetPDF(budget: BudgetData, bgBase64?: string, logoBase64?: string): jsPDF {
-  const doc = new jsPDF({
-    orientation: "portrait",
-    unit: "mm",
-    format: "a4"
-  });
+function fmt(n: number): string {
+  return n.toFixed(2).replace(".", ",");
+}
 
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const margin = 20;
-  const contentWidth = pageWidth - (margin * 2);
+function generateBudgetPDF(budget: BudgetData, bgBase64?: string): jsPDF {
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const PW = doc.internal.pageSize.getWidth();
+  const PH = doc.internal.pageSize.getHeight();
+  const M = 20;
+  const CW = PW - M * 2;
 
-  // Colors - Design System
-  const primary = [244, 201, 93] as [number, number, number];
-  const primaryDark = [229, 184, 76] as [number, number, number];
-  const dark = [10, 10, 11] as [number, number, number];
-  const gray50 = [250, 250, 251] as [number, number, number];
-  const gray100 = [244, 244, 245] as [number, number, number];
-  const gray200 = [228, 228, 231] as [number, number, number];
-  const gray400 = [161, 161, 170] as [number, number, number];
-  const gray500 = [113, 113, 122] as [number, number, number];
-  const gray700 = [63, 63, 70] as [number, number, number];
-  const white = [255, 255, 255] as [number, number, number];
-  const emerald500 = [16, 185, 129] as [number, number, number];
-  const red500 = [239, 68, 68] as [number, number, number];
-  const amber500 = [245, 158, 11] as [number, number, number];
-
-  // Background
   if (bgBase64) {
-    try {
-      doc.addImage(`data:image/png;base64,${bgBase64}`, "PNG", 0, 0, pageWidth, 297);
-    } catch (e) {}
+    try { doc.addImage(bgBase64, "PNG", 0, 0, PW, PH); } catch (_) {}
   }
 
-  let y = 55;
+  const C_BLACK: [number, number, number] = [17, 17, 17];
+  const C_GOLD: [number, number, number] = [201, 166, 107];
+  const C_GRAY: [number, number, number] = [245, 245, 245];
+  const C_GRAY_LINE: [number, number, number] = [229, 229, 229];
+  const C_TEXT: [number, number, number] = [100, 100, 100];
 
-  // ===== HEADER =====
-  // Logo
-  if (logoBase64) {
-    try {
-      doc.addImage(`data:image/png;base64,${logoBase64}`, "PNG", margin, y, 50, 32);
-    } catch (e) {
-      doc.setFillColor(...gray100);
-      doc.roundedRect(margin, y, 50, 32, 4, 4, "F");
-      doc.setTextColor(...gray400);
-      doc.setFontSize(9);
-      doc.text("LOGO", margin + 25, y + 18, { align: "center" });
-    }
-  }
+  let y = 18;
 
-  // Title and info (right side)
-  doc.setTextColor(...dark);
-  doc.setFontSize(28);
+  // ==============================
+  // HEADER - only logo + name
+  // ==============================
+  
+
+  
+
+  y = 60;
+
+  // ==============================
+  // TITLE + DATE
+  // ==============================
+  doc.setTextColor(...C_BLACK);
+  doc.setFontSize(24);
   doc.setFont("helvetica", "bold");
-  doc.text("ORÇAMENTO", pageWidth - margin, y + 8, { align: "right" });
+  doc.text("ORÇAMENTO", M, y);
+  y += 7;
 
-  doc.setTextColor(...gray500);
-  doc.setFontSize(11);
+  doc.setFontSize(14);
   doc.setFont("helvetica", "normal");
-  doc.text(`Nº ${budget.id || "001"}`, pageWidth - margin, y + 20, { align: "right" });
+  doc.setTextColor(...C_TEXT);
+  doc.text(budget.date.toLocaleDateString("pt-BR"), M, y);
+  y += 10;
 
-  const dateStr = budget.date.toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
-  doc.setFontSize(10);
-  doc.text(dateStr, pageWidth - margin, y + 28, { align: "right" });
-
-  // Validity badge
-  doc.setFillColor(...primary);
-  doc.roundedRect(pageWidth - margin - 45, y + 38, 45, 18, 3, 3, "F");
-  doc.setTextColor(...dark);
-  doc.setFontSize(11);
+  // ==============================
+  // CLIENT
+  // ==============================
+  doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
-  doc.text(`${budget.validity} dias`, pageWidth - margin - 22.5, y + 50, { align: "center" });
+  doc.setTextColor(...C_BLACK);
+  doc.text(budget.clientName, M, y);
+  y += 5;
 
-  // Divider
-  doc.setFillColor(...primary);
-  doc.rect(margin, y + 48, contentWidth, 3, "F");
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...C_TEXT);
+  doc.text(budget.clientPhone, M, y);
+  y += 10;
 
-  y += 62;
+  // ==============================
+  // TABLE
+  // ==============================
+  const colQtd = 14;
+  const colServico = 50;
+  const colDesc = CW - colQtd - colServico - 35 - 30;
+  const colVlr = 35;
+  const colTotal = 30;
 
-  // ===== CLIENT CARD =====
-  doc.setFillColor(...white);
-  doc.setDrawColor(...gray200);
-  doc.setLineWidth(0.5);
-  doc.roundedRect(margin, y, contentWidth, 38, 6, 6, "FD");
+  // Header - white bg with gold bottom border
+  const h = 7;
+  doc.setFillColor(255, 255, 255);
+  doc.rect(M, y, CW, h, "F");
+  doc.setDrawColor(...C_GOLD);
+  doc.setLineWidth(0.8);
+  doc.line(M, y + h, PW - M, y + h);
 
-  // Avatar
-  doc.setFillColor(...primary);
-  doc.circle(margin + 24, y + 19, 12, "F");
-  doc.setTextColor(...dark);
+  doc.setTextColor(...C_BLACK);
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
-  doc.text(budget.clientName ? budget.clientName.charAt(0).toUpperCase() : "C", margin + 24, y + 23, { align: "center" });
 
-  // Client name
-  doc.setTextColor(...dark);
-  doc.setFontSize(14);
-  doc.setFont("helvetica", "bold");
-  doc.text(budget.clientName || "Cliente", margin + 44, y + 14);
+  const hy = y + 5;
+  let cx = M;
+  doc.text("QTD", cx + 2, hy);
+  cx += colQtd;
+  doc.text("SERVI\u00c7O", cx + 2, hy);
+  cx += colServico;
+  doc.text("DESCRI\u00c7\u00c3O", cx + 2, hy);
+  cx += colDesc;
+  doc.text("VALOR UNIT.", cx + 2, hy);
+  cx += colVlr;
+  doc.text("TOTAL", cx + colTotal - 2, hy, { align: "right" });
 
-  // Contacts
-  doc.setTextColor(...gray500);
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  let contactX = margin + 44;
-  if (budget.clientPhone) {
-    doc.text(`Tel: ${budget.clientPhone}`, contactX, y + 26);
-    contactX += 55;
-  }
-  if (budget.clientEmail) {
-    doc.text(`Email: ${budget.clientEmail}`, contactX, y + 26);
-  }
+  y += h + 1;
 
-  y += 48;
+  // Rows
+  const rowPad = 1.0;
+  const baseRowH = 6.5;
+  const lh = 3;
 
-  // ===== ITEMS TABLE =====
-  const rowHeight = 13;
-  const headerHeight = 14;
+  budget.items.forEach((item, i) => {
+    let descLines: string[] = [];
+    if (item.description) {
+      descLines = doc.splitTextToSize(item.description, colDesc - 3);
+    }
+    const descH = descLines.length > 0 ? descLines.length * lh + 1 : 0;
+    const rowH = Math.max(baseRowH, baseRowH + descH);
 
-  // Table header
-  doc.setFillColor(...dark);
-  doc.roundedRect(margin, y, contentWidth, headerHeight, 3, 3, "F");
+    if (y + rowH + 20 > PH) { doc.addPage(); y = M; }
 
-  doc.setTextColor(...white);
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "bold");
-
-  const colNum = 12;
-  const colQtd = 26;
-  const colVlr = 40;
-  const colSub = 40;
-  const colDesc = contentWidth - colNum - colQtd - colVlr - colSub;
-
-  doc.text("#", margin + 5, y + 10);
-  doc.text("DESCRIÇÃO", margin + colNum + 8, y + 10);
-  doc.text("QTD", margin + colNum + colDesc + 8, y + 10, { align: "center" });
-  doc.text("VALOR UNIT.", margin + colNum + colDesc + colQtd + 8, y + 10, { align: "center" });
-  doc.text("SUBTOTAL", pageWidth - margin - 4, y + 10, { align: "right" });
-
-  y += headerHeight;
-
-  // Table rows
-  budget.items.forEach((item, index) => {
-    const isEven = index % 2 === 0;
-
-    if (isEven) {
-      doc.setFillColor(...gray50);
-      doc.rect(margin, y, contentWidth, rowHeight, "F");
+    // Alternating background
+    if (i % 2 === 0) {
+      doc.setFillColor(...C_GRAY);
+      doc.rect(M, y, CW, rowH, "F");
     }
 
-    doc.setDrawColor(...gray200);
+    // Subtle bottom border
+    doc.setDrawColor(...C_GRAY_LINE);
     doc.setLineWidth(0.2);
-    doc.line(margin, y + rowHeight, pageWidth - margin, y + rowHeight);
+    doc.line(M, y + rowH, PW - M, y + rowH);
 
-    doc.setTextColor(...gray400);
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    doc.text(String(index + 1).padStart(2, "0"), margin + 5, y + 9);
-
-    doc.setTextColor(...dark);
-    const itemName = item.name.length > 42 ? item.name.substring(0, 39) + "..." : item.name;
-    doc.text(itemName, margin + colNum + 8, y + 9);
-
-    doc.text(String(item.quantity), margin + colNum + colDesc + 8, y + 9, { align: "center" });
-
-    doc.text(`R$ ${item.price.toFixed(2).replace(".", ",")}`, margin + colNum + colDesc + colQtd + 8, y + 9, { align: "center" });
-
+    const ty = y + rowPad + 4;
+    // QTD - centered
+    doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.text(`R$ ${(item.quantity * item.price).toFixed(2).replace(".", ",")}`, pageWidth - margin - 4, y + 9, { align: "right" });
+    doc.setTextColor(...C_BLACK);
+    doc.text(String(item.quantity), M + colQtd / 2, ty, { align: "center" });
 
-    y += rowHeight;
+    // Service name
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text(item.name, M + colQtd + 2, ty);
+
+    // Description
+    if (descLines.length > 0) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(12);
+      doc.setTextColor(...C_TEXT);
+      doc.text(descLines, M + colQtd + colServico + 2, ty);
+    }
+
+    // Unit price - right aligned within column
+    const vlrX = M + colQtd + colServico + colDesc;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(12);
+    doc.setTextColor(...C_BLACK);
+    doc.text(`R$ ${fmt(item.price)}`, vlrX + colVlr - 2, ty, { align: "right" });
+
+    // Total - right aligned
+    const totX = vlrX + colVlr;
+    doc.setFont("helvetica", "bold");
+    doc.text(`R$ ${fmt(item.quantity * item.price)}`, totX + colTotal - 2, ty, { align: "right" });
+
+    y += rowH + 2;
   });
 
-  // Bottom line
-  doc.setFillColor(...primary);
-  doc.rect(margin, y, contentWidth, 2, "F");
-
-  y += 12;
-
-  // ===== TOTALS =====
-  const subtotal = budget.items.reduce((acc, item) => acc + item.quantity * item.price, 0);
-  const discount = subtotal - budget.total;
-
-  // Totals card
-  doc.setFillColor(...white);
-  doc.setDrawColor(...gray200);
+  // Gold line below last row
+  doc.setDrawColor(...C_GOLD);
   doc.setLineWidth(0.5);
-  doc.roundedRect(margin, y, contentWidth, 52, 4, 4, "FD");
+  doc.line(M, y, PW - M, y);
 
-  // Subtotal
-  doc.setTextColor(...gray500);
-  doc.setFontSize(12);
-  doc.setFont("helvetica", "normal");
-  doc.text("Subtotal", margin + 16, y + 18);
-  doc.text(`R$ ${subtotal.toFixed(2).replace(".", ",")}`, pageWidth - margin - 16, y + 18, { align: "right" });
+  y += 3;
 
-  // Discount
-  doc.text("Desconto", margin + 16, y + 30);
-  doc.text(`R$ ${discount.toFixed(2).replace(".", ",")}`, pageWidth - margin - 16, y + 30, { align: "right" });
+  // ==============================
+  // TOTAL
+  // ==============================
+  if (y + 30 > PH) { doc.addPage(); y = M; }
 
-  // Separator
-  doc.setDrawColor(...gray200);
-  doc.setLineWidth(0.5);
-  doc.line(margin + 12, y + 38, pageWidth - margin - 12, y + 38);
+  const barW = 80;
+  const barH = 10;
+  const barX = PW - M - barW;
 
-  // Total label
-  doc.setTextColor(...dark);
+  doc.setFillColor(...C_BLACK);
+  doc.rect(barX, y, barW, barH, "F");
+
+  doc.setTextColor(255, 255, 255);
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
-  doc.text("TOTAL", margin + 16, y + 48);
+  doc.text("Total", barX + 8, y + 7);
 
-  // Total value highlight
-  doc.setFillColor(...primary);
-  doc.roundedRect(pageWidth - margin - 70, y + 40, 70, 16, 3, 3, "F");
-  doc.setTextColor(...dark);
-  doc.setFontSize(14);
-  doc.text(`R$ ${budget.total.toFixed(2).replace(".", ",")}`, pageWidth - margin - 16, y + 52, { align: "right" });
+  doc.setTextColor(...C_GOLD);
+  doc.setFontSize(16);
+  doc.setFont("helvetica", "bold");
+  doc.text(`R$ ${fmt(budget.total)}`, barX + barW - 8, y + 7, { align: "right" });
 
-  y += 60;
+  y += barH + 8;
 
-  // ===== NOTES =====
-  if (budget.notes && budget.notes.trim()) {
-    doc.setFillColor(...gray100);
-    doc.roundedRect(margin, y, contentWidth, 28, 3, 3, "F");
+  // ==============================
+  // NOTES
+  // ==============================
+  if (budget.notes) {
+    if (y + 20 > PH) { doc.addPage(); y = M; }
 
-    doc.setTextColor(...dark);
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.text("Observações", margin + 12, y + 10);
-
+    doc.setFontSize(12);
     doc.setFont("helvetica", "normal");
-    doc.setTextColor(...gray500);
-    doc.setFontSize(9);
-    const notesLines = doc.splitTextToSize(budget.notes, contentWidth - 24);
-    doc.text(notesLines.slice(0, 2), margin + 12, y + 18);
+    doc.setTextColor(...C_TEXT);
+    const lines = doc.splitTextToSize(budget.notes, CW);
+    doc.text(lines, M, y);
   }
 
   return doc;
@@ -268,14 +232,7 @@ export async function loadBackgroundImage(): Promise<string> {
     const blob = await res.blob();
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        if (result.includes(",")) {
-          resolve(result.split(",")[1]);
-        } else {
-          resolve(result);
-        }
-      };
+      reader.onloadend = () => resolve(reader.result as string);
       reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
@@ -284,13 +241,8 @@ export async function loadBackgroundImage(): Promise<string> {
   }
 }
 
-export function downloadBudgetPDF(budget: BudgetData, logoBase64?: string, bgBase64?: string) {
-  const doc = generateBudgetPDF(budget, bgBase64, logoBase64);
-  const budgetNumber = budget.id || "001";
-  doc.save(`orcamento-${budgetNumber}.pdf`);
-}
-
-export function previewBudgetPDF(budget: BudgetData, logoBase64?: string, bgBase64?: string): string {
-  const doc = generateBudgetPDF(budget, bgBase64, logoBase64);
-  return doc.output("datauristring");
+export async function downloadBudgetPDF(budget: BudgetData) {
+  const bgBase64 = await loadBackgroundImage();
+  const doc = generateBudgetPDF(budget, bgBase64);
+  doc.save(`orcamento-${budget.id || "001"}.pdf`);
 }

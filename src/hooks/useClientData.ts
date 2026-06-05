@@ -325,36 +325,4 @@ export function usePayments(clientId?: string, orderId?: string) {
   return { payments, loading, fetchPayments, addPayment, markAsPaid };
 }
 
-// ============================================
-// PRODUCTS
-// ============================================
 
-export function useProducts() {
-  const [products, setProducts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchProducts = async () => {
-      setLoading(true);
-      try {
-        const { data, error } = await supabase
-          .from('products')
-          .select('*')
-          .eq('is_active', true)
-          .order('is_featured', { ascending: false })
-          .order('name');
-
-        if (error) throw error;
-        setProducts(data || []);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProducts();
-  }, []);
-
-  return { products, loading };
-}

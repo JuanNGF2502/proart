@@ -5,16 +5,20 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { DashboardLayout } from "@/shared/components/layouts";
 import { Header } from "@/shared/components/layouts";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, ArrowLeft, Save, FileText, User, Phone, Mail, Loader2, FileDown, Search, ChevronDown, X, Plus as PlusIcon } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, Save, FileText, User, Phone, Mail, Loader2, FileDown, Search, ChevronDown, X, Layers, DollarSign } from "lucide-react";
 import Link from "next/link";
-import { downloadBudgetPDF, loadBackgroundImage, type BudgetData } from "@/shared/lib/pdf-generator";
+import { formatCurrency } from "@/shared/lib/utils";
+import { downloadBudgetPDF, type BudgetData } from "@/shared/lib/pdf-generator";
 import { supabase } from "@/lib/supabase";
+import type { Product } from "@/types/database";
 
 interface Item {
   id: string;
+  product_id?: string;
   name: string;
   quantity: number;
   price: number;
+  unit: string;
 }
 
 interface Client {
@@ -35,10 +39,18 @@ interface Budget {
   validity: number;
 }
 
+interface ProductOption {
+  id: string;
+  name: string;
+  unit_price: number;
+  unit: string;
+  category?: string;
+  pricing_mode: 'manual' | 'component_sum';
+}
+
 function NewBudgetContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [bgBase64, setBgBase64] = useState<string>("");
   const [isEditMode, setIsEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,18 +61,21 @@ function NewBudgetContent() {
   const [clientSearch, setClientSearch] = useState("");
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
+  // Products catalog
+  const [products, setProducts] = useState<ProductOption[]>([]);
+  const [activeProductSearch, setActiveProductSearch] = useState<string | null>(null);
+
   const [budget, setBudget] = useState<Budget>({
     id: "",
     clientId: "",
     name: "",
     phone: "",
     email: "",
-    items: [{ id: "1", name: "", quantity: 1, price: 0 }],
+    items: [{ id: "1", name: "", quantity: 1, price: 0, unit: "un" }],
     notes: "",
     validity: 30,
   });
 
-  // Fetch clients
   useEffect(() => {
     const fetchClients = async () => {
       try {
@@ -71,7 +86,6 @@ function NewBudgetContent() {
           .order('name');
         setClients(data || []);
 
-        // If editing, find and set the selected client
         const editData = searchParams.get("data");
         const editMode = searchParams.get("edit");
         if (editData && editMode === "true" && data) {
@@ -83,19 +97,19 @@ function NewBudgetContent() {
               name: parsed.name || "",
               phone: parsed.phone || "",
               email: parsed.email || "",
-              items: parsed.items && parsed.items.length > 0 ? parsed.items : [{ id: "1", name: "", quantity: 1, price: 0 }],
+              items: parsed.items && parsed.items.length > 0
+                ? parsed.items.map((i: any) => ({ ...i, unit: i.unit || "un" }))
+                : [{ id: "1", name: "", quantity: 1, price: 0, unit: "un" }],
               notes: parsed.notes || "",
               validity: parsed.validity || 30,
             });
 
-            // Find and set selected client
             if (parsed.clientId) {
               const foundClient = data.find((c: Client) => c.id === parsed.clientId);
               if (foundClient) {
                 setSelectedClient(foundClient);
               }
             } else if (parsed.name) {
-              // If no clientId but has name, create a temporary client object
               setSelectedClient({
                 id: parsed.clientId || "",
                 name: parsed.name,
@@ -113,19 +127,28 @@ function NewBudgetContent() {
         console.error('Erro ao buscar clientes:', e);
       }
     };
+
+    const fetchProducts = async () => {
+      try {
+        const { data } = await supabase
+          .from('products')
+          .select('id, name, unit_price, unit, category, pricing_mode')
+          .eq('is_active', true)
+          .order('name');
+        setProducts(data || []);
+      } catch (e) {
+        console.error('Erro ao buscar produtos:', e);
+      }
+    };
+
     fetchClients();
+    fetchProducts();
   }, []);
 
-  useEffect(() => {
-    loadBackgroundImage().then(setBgBase64).catch(() => setBgBase64(""));
-  }, []);
-
-  // Filter clients based on search
   const filteredClients = clients.filter(c =>
     c.name.toLowerCase().includes(clientSearch.toLowerCase())
   );
 
-  // Handle client selection
   const handleSelectClient = (client: Client) => {
     setSelectedClient(client);
     setBudget({
@@ -139,7 +162,6 @@ function NewBudgetContent() {
     setClientSearch("");
   };
 
-  // Handle client removal
   const handleRemoveClient = () => {
     setSelectedClient(null);
     setBudget({
@@ -154,7 +176,7 @@ function NewBudgetContent() {
   const addItem = () => {
     setBudget({
       ...budget,
-      items: [...budget.items, { id: Date.now().toString(), name: "", quantity: 1, price: 0 }],
+      items: [...budget.items, { id: crypto.randomUUID(), name: "", quantity: 1, price: 0, unit: "un" }],
     });
   };
 
@@ -176,6 +198,35 @@ function NewBudgetContent() {
     });
   };
 
+  const handleSelectProduct = (itemId: string, product: ProductOption) => {
+    setBudget({
+      ...budget,
+      items: budget.items.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              product_id: product.id,
+              name: product.name,
+              price: product.unit_price,
+              unit: product.unit,
+            }
+          : item
+      ),
+    });
+    setActiveProductSearch(null);
+  };
+
+  const handleClearProduct = (itemId: string) => {
+    setBudget({
+      ...budget,
+      items: budget.items.map((item) =>
+        item.id === itemId
+          ? { ...item, product_id: undefined, name: "", price: 0, unit: "un" }
+          : item
+      ),
+    });
+  };
+
   const subtotal = budget.items.reduce((acc, item) => acc + item.quantity * item.price, 0);
   const total = subtotal;
 
@@ -190,14 +241,12 @@ function NewBudgetContent() {
     setError(null);
 
     try {
-      // Calculate valid until
       const validUntil = new Date();
       validUntil.setDate(validUntil.getDate() + budget.validity);
       let budgetNumber = "";
       let budgetId = "";
 
       if (isEditMode && budget.id) {
-        // Update existing budget
         const { error: budgetError } = await supabase
           .from('budgets')
           .update({
@@ -213,7 +262,6 @@ function NewBudgetContent() {
         if (budgetError) throw budgetError;
         budgetId = budget.id;
 
-        // Get budget number for timeline
         const { data: existingBudget } = await supabase
           .from('budgets')
           .select('budget_number')
@@ -221,22 +269,21 @@ function NewBudgetContent() {
           .single();
         budgetNumber = existingBudget?.budget_number || "";
 
-        // Delete old items and insert new ones
         await supabase.from('budget_items').delete().eq('budget_id', budget.id);
 
         const itemsToInsert = validItems.map((item, index) => ({
           budget_id: budget.id,
           name: item.name,
           quantity: item.quantity,
-          unit: 'und',
+          unit: item.unit || 'un',
           unit_price: item.price,
           total: item.quantity * item.price,
+          product_id: item.product_id || null,
           sort_order: index,
         }));
 
         await supabase.from('budget_items').insert(itemsToInsert);
       } else {
-        // Create new budget
         const { data: lastBudget } = await supabase
           .from('budgets')
           .select('budget_number')
@@ -270,16 +317,16 @@ function NewBudgetContent() {
           budget_id: newBudget.id,
           name: item.name,
           quantity: item.quantity,
-          unit: 'und',
+          unit: item.unit || 'un',
           unit_price: item.price,
           total: item.quantity * item.price,
+          product_id: item.product_id || null,
           sort_order: index,
         }));
 
         await supabase.from('budget_items').insert(itemsToInsert);
       }
 
-      // Create timeline
       await supabase.from('timeline').insert({
         budget_id: budgetId,
         client_id: budget.clientId || null,
@@ -321,8 +368,14 @@ function NewBudgetContent() {
       total: total,
     };
 
-    downloadBudgetPDF(budgetData, undefined, bgBase64);
+    downloadBudgetPDF(budgetData);
   };
+
+  const filteredProducts = (search: string) =>
+    products.filter(p =>
+      p.name.toLowerCase().includes(search.toLowerCase()) ||
+      (p.category && p.category.toLowerCase().includes(search.toLowerCase()))
+    );
 
   return (
     <DashboardLayout>
@@ -430,7 +483,6 @@ function NewBudgetContent() {
             </div>
           )}
 
-          {/* Manual entry fallback */}
           {selectedClient && (
             <div className="mt-4 space-y-4 pt-4 border-t border-gray-200">
               <div>
@@ -490,64 +542,143 @@ function NewBudgetContent() {
           </div>
 
           <div className="space-y-4">
-            {budget.items.map((item, index) => (
-              <motion.div
-                key={item.id}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.03 }}
-                className="p-4 bg-gray-50 rounded-2xl"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="flex-1 space-y-3">
-                    <div>
-                      <input
-                        type="text"
-                        placeholder="Descrição do item *"
-                        value={item.name}
-                        onChange={(e) => updateItem(item.id, "name", e.target.value)}
-                        className="w-full h-11 px-4 bg-white rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-primary transition-colors"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-xs font-medium text-gray-500 mb-1 block">Qtd</label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={item.quantity}
-                          onChange={(e) => updateItem(item.id, "quantity", parseInt(e.target.value) || 1)}
-                          className="w-full h-11 px-4 bg-white rounded-xl border border-gray-200 text-gray-900 focus:outline-none focus:border-primary transition-colors"
-                        />
+            {budget.items.map((item, index) => {
+              const matchingProducts = activeProductSearch === item.id && item.name.length >= 1
+                ? filteredProducts(item.name)
+                : [];
+
+              return (
+                <motion.div
+                  key={item.id}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.03 }}
+                  className="p-4 bg-gray-50 rounded-2xl"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1 space-y-3">
+                      {/* Product search / name input */}
+                      <div className="relative">
+                        {item.product_id ? (
+                          <div className="flex items-center justify-between h-11 px-4 bg-white rounded-xl border border-emerald-200">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-sm font-medium text-gray-900 truncate">{item.name}</span>
+                              <span className="shrink-0 px-2 py-0.5 rounded text-[10px] font-semibold bg-primary/10 text-primary-dark">
+                                Catálogo
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => handleClearProduct(item.id)}
+                              className="p-1 hover:bg-gray-100 rounded-lg ml-2 shrink-0"
+                            >
+                              <X className="h-3.5 w-3.5 text-gray-400" />
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                            <input
+                              type="text"
+                              placeholder="Buscar produto do catálogo ou digitar manual..."
+                              value={item.name}
+                              onChange={(e) => {
+                                updateItem(item.id, "name", e.target.value);
+                                setActiveProductSearch(item.id);
+                              }}
+                              onFocus={() => setActiveProductSearch(item.id)}
+                              className="w-full h-11 pl-10 pr-4 bg-white rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-primary transition-colors"
+                            />
+                            <AnimatePresence>
+                              {matchingProducts.length > 0 && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: -10 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  exit={{ opacity: 0, y: -10 }}
+                                  className="absolute z-20 w-full mt-1 bg-white rounded-xl border border-gray-200 shadow-lg max-h-48 overflow-auto"
+                                >
+                                  {matchingProducts.slice(0, 8).map((product) => (
+                                    <button
+                                      key={product.id}
+                                      onClick={() => handleSelectProduct(item.id, product)}
+                                      className="w-full flex items-center justify-between p-3 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0"
+                                    >
+                                      <div className="text-left min-w-0">
+                                        <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>
+                                        <div className="flex items-center gap-2 mt-0.5">
+                                          {product.category && (
+                                            <span className="text-[10px] text-gray-400 uppercase">{product.category}</span>
+                                          )}
+                                          <span className={`inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                                            product.pricing_mode === 'component_sum'
+                                              ? 'bg-primary/10 text-primary-dark'
+                                              : 'bg-gray-100 text-gray-500'
+                                          }`}>
+                                            {product.pricing_mode === 'component_sum' ? (
+                                              <><Layers className="h-2.5 w-2.5" /> Componentes</>
+                                            ) : (
+                                              <><DollarSign className="h-2.5 w-2.5" /> Fixo</>
+                                            )}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      <div className="text-right shrink-0 ml-3">
+                                        <p className="text-sm font-bold text-gray-900">{formatCurrency(product.unit_price)}</p>
+                                        <p className="text-[10px] text-gray-400">/{product.unit}</p>
+                                      </div>
+                                    </button>
+                                  ))}
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </>
+                        )}
                       </div>
-                      <div>
-                        <label className="text-xs font-medium text-gray-500 mb-1 block">Valor Unit.</label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={item.price}
-                          onChange={(e) => updateItem(item.id, "price", parseFloat(e.target.value) || 0)}
-                          className="w-full h-11 px-4 bg-white rounded-xl border border-gray-200 text-gray-900 focus:outline-none focus:border-primary transition-colors"
-                        />
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs font-medium text-gray-500 mb-1 block">Qtd</label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={item.quantity}
+                            onChange={(e) => updateItem(item.id, "quantity", parseInt(e.target.value) || 1)}
+                            className="w-full h-11 px-4 bg-white rounded-xl border border-gray-200 text-gray-900 focus:outline-none focus:border-primary transition-colors"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-gray-500 mb-1 block">Valor Unit. ({item.unit})</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={item.price}
+                            onChange={(e) => updateItem(item.id, "price", parseFloat(e.target.value) || 0)}
+                            className="w-full h-11 px-4 bg-white rounded-xl border border-gray-200 text-gray-900 focus:outline-none focus:border-primary transition-colors"
+                          />
+                        </div>
                       </div>
                     </div>
+                    <button
+                      onClick={() => removeItem(item.id)}
+                      className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center shrink-0 hover:bg-red-200 transition-colors mt-1"
+                    >
+                      <Trash2 className="h-4 w-4 text-red-600" />
+                    </button>
                   </div>
-                  <button
-                    onClick={() => removeItem(item.id)}
-                    className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center shrink-0 hover:bg-red-200 transition-colors"
-                  >
-                    <Trash2 className="h-4 w-4 text-red-600" />
-                  </button>
-                </div>
-                <div className="mt-3 text-right">
-                  <span className="text-sm text-gray-500">Subtotal: </span>
-                  <span className="font-semibold text-gray-900">
-                    R$ {(item.quantity * item.price).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                  </span>
-                </div>
-              </motion.div>
-            ))}
+                  <div className="mt-3 text-right flex items-center justify-between">
+                    <div className="text-xs text-gray-400">
+                      {item.product_id ? "Produto do catálogo" : "Item avulso"}
+                    </div>
+                    <span className="text-sm text-gray-500">
+                      Subtotal:{" "}
+                      <span className="font-semibold text-gray-900">
+                        {formatCurrency(item.quantity * item.price)}
+                      </span>
+                    </span>
+                  </div>
+                </motion.div>
+              );
+            })}
           </div>
         </motion.div>
 
@@ -608,12 +739,12 @@ function NewBudgetContent() {
           <div className="space-y-3 mb-4">
             <div className="flex justify-between text-gray-400">
               <span>Subtotal ({budget.items.filter(i => i.name).length} items)</span>
-              <span>R$ {subtotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+              <span>{formatCurrency(subtotal)}</span>
             </div>
             <div className="h-px bg-gray-700" />
             <div className="flex justify-between text-white">
               <span className="font-semibold">Total</span>
-              <span className="text-2xl font-bold">R$ {total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+              <span className="text-2xl font-bold">{formatCurrency(total)}</span>
             </div>
           </div>
         </motion.div>

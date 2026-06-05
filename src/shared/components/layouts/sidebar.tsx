@@ -11,6 +11,7 @@ import {
   Bell,
   Settings,
   LogOut,
+  Box,
 } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -18,6 +19,7 @@ import { useAuth } from "@/hooks/useAuth";
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/clients", icon: Users, label: "Clientes" },
+  { href: "/products", icon: Box, label: "Produtos" },
   { href: "/budgets", icon: Receipt, label: "Orçamentos" },
   { href: "/orders", icon: Package, label: "Pedidos" },
   { href: "/production", icon: Factory, label: "Produção" },
